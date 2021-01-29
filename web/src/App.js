@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Axios from 'axios';
 import './App.css';
 
@@ -10,6 +10,8 @@ function App() {
   const [password, setPassword] = useState('');
 
   const [loginStatus, setLoginStatus] = useState('');
+
+  Axios.defaults.withCredentials = true;
 
   function register() {
     Axios.post('http://localhost:3001/register', { 
@@ -34,6 +36,12 @@ function App() {
     });
   }
 
+  useEffect(() => {
+    Axios.get('http://localhost:3001/login').then((response) => {
+      setLoginStatus(response.data.user[0].name);
+    });
+  }, []);
+
   return (
     <div className="App">
       <div className="registration">
@@ -47,7 +55,7 @@ function App() {
 
         <label>Password</label>
         <input 
-          type="password" 
+          type="text" 
           value={passwordReg}
           onChange={e => {setPasswordReg(e.target.value)}} 
         />
@@ -70,7 +78,7 @@ function App() {
 
         <label>Password</label>
         <input 
-          type="password" 
+          type="text" 
           placeholder="Password..." 
           value={password}
           onChange={e => {setPassword(e.target.value)}} 
