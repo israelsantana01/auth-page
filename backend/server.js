@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 
@@ -46,15 +47,37 @@ app.post('/register', (req, res) => {
       'INSERT INTO users (name, password) VALUES (?,?)', 
       [name, hash], 
       (err, result) => {
-        console.log(err);
+        if (err) console.log(err);
       }
     );
   });
 });
 
+function verifyJWT(req, res, next) {
+  const bearerToken = req.headers['x-access-token'];
+  const token = bearerToken.split(' ')[1];
+
+  if (!token) {
+    res.send('Yo, we need a token, please give it to us next time!');
+  } else {
+    jwt.verify(token, 'jwtSecret', (err, decoded) => {
+      if (err) {
+        res.json({ auth: false, message: err })
+      } else {
+        req.userId = decoded.id;
+        next();
+      }
+    })
+  }
+}
+
+app.get('/isUserAuth', verifyJWT, (req, res) => {
+  res.send('Yo, u are authenticated Congrats!');
+});
+
 app.get('/login', (req, res) => {
   if (req.session.user) {
-    res.send({ loggedIn: true, user: req.session.user });
+    res.json({ loggedIn: true, user: req.session.user });
   } else {
     res.send({ loggedIn: false });
   }
@@ -67,25 +90,29 @@ app.post('/login', (req, res) => {
     'SELECT * FROM users WHERE name = ?', 
     name, 
     (err, result) => {
-      if (err) res.send({ err: err });
+      if (err) res.send({ message: err });
 
       if (result.length > 0) {
         bcrypt.compare(password, result[0].password, (err, response) => {
           if (response) {
+            const id = result[0].id;
+            const token = jwt.sign({id}, 'jwtSecret', {
+              expiresIn: 300,
+            });
             req.session.user = result;
-            console.log(req.session.user);
-            res.send(result);
+ 
+            res.json({ auth: true, token: token, result: result });
           } else {
-            res.send({message: 'Wrong name/password combination!'});
+            res.send({ auth: false, message: err });
           }
         });
       } else {
-        res.send({message: "User doesn't exist "});
+        res.json({ auth: false, message: err });
       }
     }
   );
 });
 
 app.listen(3001, () => {
-  console.log('running server...');
+  console.log('Running server on: http://localhost:3001');
 });
